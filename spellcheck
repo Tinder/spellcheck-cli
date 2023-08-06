@@ -1,0 +1,97 @@
+#!/usr/bin/env swift
+
+//
+//  All Contributions by Match Group
+//
+//  Copyright © 2023 Tinder (Match Group, LLC)
+//
+//  Licensed under the Match Group Modified 3-Clause BSD License.
+//  See https://github.com/Tinder/spellcheck-cli/blob/main/LICENSE for license information.
+//
+
+import AppKit
+
+let arguments: [String] = CommandLine.arguments
+
+let spellChecker: NSSpellChecker = .shared
+
+if arguments.contains("-h") || arguments.contains("--help") {
+    print("Available Languages:")
+    print(spellChecker.availableLanguages.joined(separator: "\n"))
+    exit(EXIT_SUCCESS)
+}
+
+let json: Bool = arguments.contains("--json")
+
+let language: String?
+
+if let index: Int = arguments.firstIndex(of: "--language"), index < arguments.count - 1 {
+    language = arguments[index + 1]
+} else {
+    language = ProcessInfo.processInfo.environment["SPELLCHECK_CLI_LANGUAGE"]
+}
+
+struct MisspelledWord: Codable {
+
+    let word: String
+    let guesses: [String]
+}
+
+func readStandardInput() -> String {
+    var input: String = ""
+    while let line: String = readLine(strippingNewline: false) {
+        input.append(line)
+    }
+    return input
+}
+
+func misspelledWords(in text: String) -> [MisspelledWord] {
+
+    _ = language.flatMap(spellChecker.setLanguage)
+
+    var misspelledWords: [MisspelledWord] = []
+
+    var location: Int = 0
+
+    while location < NSMaxRange(NSRange(text.startIndex..., in: text)) {
+
+        let range: NSRange = spellChecker.checkSpelling(of: text, startingAt: location)
+
+        guard range.location != NSNotFound,
+              range.location >= location
+        else { break }
+
+        let guesses: [String] = spellChecker.guesses(forWordRange: range,
+                                                     in: text,
+                                                     language: nil,
+                                                     inSpellDocumentWithTag: 0) ?? []
+
+        if let range: Range = .init(range, in: text) {
+            let misspelledWord: MisspelledWord = .init(word: String(text[range]),
+                                                       guesses: guesses)
+            misspelledWords.append(misspelledWord)
+        }
+
+        location = NSMaxRange(range)
+    }
+
+    return misspelledWords
+}
+
+let misspelledWords: [MisspelledWord] = misspelledWords(in: readStandardInput())
+
+if json {
+    let data: Data = try JSONEncoder().encode(misspelledWords)
+    print(String(decoding: data, as: UTF8.self))
+    exit(EXIT_SUCCESS)
+}
+
+for misspelledWord in misspelledWords {
+    misspelledWord.guesses.isEmpty
+        ? print(misspelledWord.word)
+        : print(misspelledWord.word, "->", misspelledWord.guesses.joined(separator: " "))
+}
+
+misspelledWords.isEmpty
+    ? exit(EXIT_SUCCESS)
+    : exit(EXIT_FAILURE)

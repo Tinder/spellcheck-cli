@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+OUTPUT=$(echo "" | ./spellcheck)
+
+if ! [ "$OUTPUT" = "" ]
+then
+	echo 'FAIL: `echo "" | ./spellcheck` should not produce output'
+	exit 1
+fi
+
+OUTPUT=$(./spellcheck -h)
+
+if [ $? -ne 0 ]
+then
+	echo 'FAIL: `./spellcheck -h` should exit with code 0'
+	exit 1
+fi
+
+OUTPUT=$(./spellcheck -h | head -n 1)
+
+if ! [ "$OUTPUT" = "Available Languages:" ]
+then
+	echo 'FAIL: `./spellcheck -h | head -n 1` should output `Available Languages:`'
+	exit 1
+fi
+
+OUTPUT=$(./spellcheck --help)
+
+if [ $? -ne 0 ]
+then
+	echo 'FAIL: `./spellcheck --help` should exit with code 0'
+	exit 1
+fi
+
+OUTPUT=$(./spellcheck --help | head -n 1)
+
+if ! [ "$OUTPUT" = "Available Languages:" ]
+then
+	echo 'FAIL: `./spellcheck --help | head -n 1` should output `Available Languages:`'
+	exit 1
+fi
+
+OUTPUT=$(echo "mispell" | ./spellcheck)
+
+if [ $? -ne 1 ]
+then
+	echo 'FAIL: `echo "mispell" | ./spellcheck` should exit with code 1'
+	exit 1
+fi
+
+if ! [ "$OUTPUT" = "mispell -> misspell ispell" ]
+then
+	echo 'FAIL: `echo "mispell" | ./spellcheck` should output `mispell -> misspell ispell`'
+	exit 1
+fi
+
+OUTPUT=$(echo "lllamo" | ./spellcheck --language en)
+
+if [ $? -ne 1 ]
+then
+	echo 'FAIL: `echo "lllamo" | ./spellcheck --language en` should exit with code 1'
+	exit 1
+fi
+
+if ! [ "$OUTPUT" = "lllamo -> llama" ]
+then
+	echo 'FAIL: `echo "lllamo" | ./spellcheck --language en` should output `lllamo -> llama"`'
+	exit 1
+fi
+
+OUTPUT=$(echo "lllamo" | ./spellcheck --language es)
+
+if [ $? -ne 1 ]
+then
+	echo 'FAIL: `echo "lllamo" | ./spellcheck --language es` should exit with code 1'
+	exit 1
+fi
+
+if ! [ "$OUTPUT" = "lllamo -> llamó llamo" ]
+then
+	echo 'FAIL: `echo "lllamo" | ./spellcheck --language es` should output `lllamo -> llamó llamo`'
+	exit 1
+fi
+
+OUTPUT=$(echo "lllamo" | env SPELLCHECK_CLI_LANGUAGE="es" ./spellcheck)
+
+if [ $? -ne 1 ]
+then
+	echo 'FAIL: `echo "lllamo" | env SPELLCHECK_CLI_LANGUAGE="es" ./spellcheck` should exit with code 1'
+	exit 1
+fi
+
+if ! [ "$OUTPUT" = "lllamo -> llamó llamo" ]
+then
+	echo 'FAIL: `echo "lllamo" | env SPELLCHECK_CLI_LANGUAGE="es" ./spellcheck` should output `lllamo -> llamó llamo`'
+	exit 1
+fi
+
+echo "All Tests Passed"
